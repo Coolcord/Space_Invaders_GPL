@@ -1,0 +1,2000 @@
+//Space Invaders GPL
+//By Cord Heath
+
+// Welcome to almost 2000 lines of GPL code! o.o
+// Normally, I wouldn't like to put so many lines of code
+// in one file, but I had to get creative due to the
+// restrictions of the language. A lot of the code is
+// very redundant as well, due to the lack of functions.
+// Consequently, I've broken the code up into four areas:
+//  - Global Variables
+//  - Initialization
+//  - Animaton Blocks
+//  - Event Blocks
+// Hopefully with them broken up, it won't be as chaotic and
+// somewhat readable.
+//
+// This game isn't perfect. I know my code is very hackish and
+// still has some minor bugs, but none of them should be game-breaking.
+// The game itself should be very playable.
+
+
+//Global Variables
+//=========================================================================================
+//Set up system variables used to create window
+int window_width = 640;
+int window_height = 480;
+int startup_window_width = window_width; //prevent bugs caused by resizing the window
+int startup_window_height = window_height;
+double window_red=0;
+double window_green=0;
+double window_blue=0;
+int mouse_x = 0;
+string window_title = "Space Invaders GPL";
+int animation_speed = 88;
+int paused = 0;
+int title_screen = 1;
+
+//New Level Synchronization Flags
+int new_level = 0;
+int level_ready = 0;
+int level_ready_to_spawn = 0;
+
+//Useful variables
+int i = 0; //typical for loop iterator
+int j = 0;
+int oblivion = -666; //move items out of the screen
+
+//Create the Tank
+int tank_body_w = 25;
+int tank_body_h = 10;
+int tank_body_y = 10;
+int tank_turret_base_w = 5;
+int tank_turret_base_h = 3;
+int tank_step_size = 10;
+int tank_body_x = (startup_window_width / 2) - (tank_body_w / 2);
+int tank_turret_base_x = tank_body_x + (tank_body_w / 2) - (tank_turret_base_w / 2) + 1;
+int tank_turret_base_y = tank_body_y + tank_body_h;
+int tank_turret_tip_x = tank_turret_base_x;
+int tank_turret_tip_y = tank_turret_base_y + tank_turret_base_h;
+int tank_turret_tip_s = tank_turret_base_w;
+int tank_bullet_x = oblivion;
+int tank_bullet_y = oblivion;
+int tank_bullet_w = tank_turret_tip_s - 2;
+int tank_bullet_h = tank_turret_base_h + tank_turret_tip_s + tank_body_h;
+double tank_bullet_damage = 0.24;
+int reload_count = 0;
+int tank_death_animation = 16; //how long the death animation lasts. This number should be divisible by 4
+int god_mode = 0; //easter egg!
+int cheat_code = 0;
+int rainbow_power = 0;
+int rainbow_power_ticks_max = 10;
+int rainbow_power_ticks = rainbow_power_ticks_max;
+double rainbow_power_increment = 0.01;
+double rainbow_power_threshold = 0.3; //how dark the tank's color can get in God mode
+forward animation tank_bullet_anim(rectangle bullet);
+forward animation tank_death_anim(pixmap explosion);
+rectangle tank_body(x = tank_body_x, y = tank_body_y,
+                    w = tank_body_w, h = tank_body_h,
+                    drawing_order = 4,
+                    red = 0, blue = 0, green = 1);
+rectangle tank_turret_base(x = tank_turret_base_x, y = tank_turret_base_y,
+                           w = tank_turret_base_w, h = tank_turret_base_h,
+                           drawing_order = 4,
+                           red = 0, blue = 0, green = 1);
+triangle tank_turret_tip(x = tank_turret_tip_x, y = tank_turret_tip_y,
+                         size = tank_turret_tip_s,
+                         drawing_order = 4,
+                         red = 0, blue = 0, green = 1);
+rectangle tank_bullet(x = tank_bullet_x, y = tank_bullet_y,
+                      w = tank_bullet_w, h = tank_bullet_h,
+                      visible = 0, animation_block = tank_bullet_anim,
+                      drawing_order = 2,
+                      red = 0, blue = 0, green = 1);
+pixmap tank_explosion(x = oblivion, y = oblivion,
+                      visible = 0,
+                      user_int = 0,
+                      filename = "TankDeath1.bmp",
+                      animation_block = tank_death_anim,
+                      drawing_order = 7);
+
+//Define the Barriers
+int barrier_w = 25;
+int barrier_h = 25;
+int barrier_y = 65;
+int barrier_space = (startup_window_width - (barrier_w * 3 * 4)) / 5;
+int barrier_x1 = barrier_space;
+int barrier_x2 = barrier_space + (barrier_w * 3) + barrier_x1;
+int barrier_x3 = barrier_space + (barrier_w * 3) + barrier_x2;
+int barrier_x4 = barrier_space + (barrier_w * 3) + barrier_x3;
+int barriers_count_max = 36;
+int barriers_count = barriers_count_max;
+rectangle barriers[barriers_count_max];
+
+//Create the Scoreboard
+double text_size = 0.12;
+int scoreboard_y = (startup_window_height / 20) * 19;
+int level_title_y = (startup_window_height / 2);
+int game_title_y = (startup_window_height / 8) * 5;
+int tips_y = (startup_window_height / 8) * 7;
+int high_score_title_y = scoreboard_y;
+int score_title_y = scoreboard_y;
+int lives_title_y = scoreboard_y;
+int high_score_title_x = 5;
+int score_title_x = (startup_window_width / 2) - 25;
+int lives_title_x = startup_window_width - 90;
+int level_title_x = (startup_window_width / 2) - 20;
+int game_title_x = (startup_window_width / 2) - 200;
+int level_title_startup_x = (startup_window_width / 2) - 160;
+int tips_respawn_x = (startup_window_width / 2) - 160;
+int tips_game_over_x = (startup_window_width / 2) - 35;
+int tips_paused_x = (startup_window_width / 2) - 15;
+string level_title_startup = "PRESS SPACE OR CLICK TO PLAY";
+string tips_respawn = "PRESS SPACE OR CLICK TO RESPAWN";
+string tips_game_over = "GAME OVER";
+string tips_paused = "PAUSED";
+int high_score = 0;
+int score = 0;
+int lives = 2;
+int new_life = 50000; //award new life at this amount of points
+int points_to_new_life = new_life;
+int dead = 0; //tank death flag
+int game_over = 0;
+int level = 1;
+int level_title_animation = 60; //how long it takes for the level title to go away
+forward animation level_title_anim(textbox level_title_text);
+textbox high_score_title(text = "HIGH SCORE: " + high_score,
+                    x = high_score_title_x, y = high_score_title_y,
+                    size = text_size,
+                    drawing_order = 6,
+                    red = 0, blue = 0, green = 0.75);
+textbox score_title(text = "SCORE: " + score,
+                    x = score_title_x, y = score_title_y,
+                    size = text_size,
+                    drawing_order = 6,
+                    red = 0, blue = 0, green = 0.75); 
+textbox lives_title(text = "LIVES: " + lives,
+                    x = lives_title_x, y = lives_title_y,
+                    size = text_size,
+                    drawing_order = 6,
+                    red = 0, blue = 0, green = 0.75);
+textbox tips(text = tips_respawn,
+             x = tips_respawn_x, y = tips_y,
+             visible = 0,
+             size = text_size, drawing_order = 1,
+             red = 0, blue = 0, green = 0.75);
+textbox level_title(text = "LEVEL " + level,
+                    x = level_title_x, y = level_title_y,
+                    visible = 1, animation_block = level_title_anim,
+                    user_int = 0,
+                    size = text_size, drawing_order = 7,
+                    red = 0, blue = 0, green = 0.75);
+textbox game_title(text = "SPACE INVADERS GPL",
+                   x = game_title_x, y = game_title_y,
+                   visible = 1,
+                   size = text_size * 2, drawing_order = 1,
+                   red = 1, blue = 1, green = 1);
+string tips_previous = tips.text;
+int tips_previous_x = tips.x;
+int tips_previous_visible = tips.visible;
+
+//Create the Invaders
+int invaders_low_count_max = 28; //Don't make more than 100, or it will throw off the beams
+int invaders_med_count_max = 28;
+int invaders_high_count_max = 14;
+int invaders_low_count = invaders_low_count_max;
+int invaders_med_count = invaders_med_count_max;
+int invaders_high_count = invaders_high_count_max;
+int invaders_h = 16;
+int invaders_ufo_h = 21;
+int invaders_low_w = 24;
+int invaders_med_w = 22;
+int invaders_high_w = 16;
+int invaders_ufo_w = 48;
+int invaders_low_start_x = 10;
+int invaders_med_start_x = invaders_low_start_x + ((invaders_low_w - invaders_med_w) / 2);
+int invaders_high_start_x = invaders_low_start_x + ((invaders_low_w - invaders_high_w) / 2);
+int invaders_y_space = 8; //space between the invaders
+int invaders_low_x_space = 15;
+int invaders_med_x_space = invaders_low_x_space + 2;
+int invaders_high_x_space = invaders_low_x_space + 8;
+int invaders_y1 = (startup_window_height / 8) * 5; //Lowest level
+int invaders_y2 = invaders_h + invaders_y_space + invaders_y1;
+int invaders_y3 = invaders_h + invaders_y_space + invaders_y2;
+int invaders_y4 = invaders_h + invaders_y_space + invaders_y3;
+int invaders_y5 = invaders_h + invaders_y_space + invaders_y4; //Highest level
+int invaders_y6 = (startup_window_height / 8) * 7; //UFO level
+int invaders_low_points = 100;
+int invaders_med_points = 200;
+int invaders_high_points = 300;
+int invaders_ufo_points1 = 300;
+int invaders_ufo_points2 = 500;
+int invaders_ufo_points3 = 700;
+int invaders_ufo_points4 = 1000;
+forward animation invader_low_anim(pixmap invader_low);
+forward animation invader_med_anim(pixmap invader_med);
+forward animation invader_high_anim(pixmap invader_high);
+forward animation invader_ufo_anim(pixmap invader_ufo);
+pixmap invaders_low[invaders_low_count_max];
+pixmap invaders_med[invaders_med_count_max];
+pixmap invaders_high[invaders_high_count_max];
+pixmap invaders_ufo(x = oblivion, y = oblivion,
+                    visible = 0, animation_block = invader_ufo_anim,
+                    user_int = 0, //direction
+                    user_int2 = 0, //point value
+                    user_int3 = 0, //death animation
+                    drawing_order = 5,
+                    filename="InvaderUFO1.bmp");
+int invaders_step_size = 10; //how many pixels the invaders move at a time
+int invaders_ufo_step_size = 1;
+int invaders_ufo_ticks_max = 1;
+int invaders_ufo_spawn_ticks_max = 1000;
+int invaders_count_max = invaders_low_count_max + invaders_med_count_max + invaders_high_count_max;
+int invaders_count = invaders_count_max;
+int invaders_ticks = invaders_count_max; //speed ticks
+int invaders_ufo_ticks = invaders_ufo_ticks_max; //speed ticks for UFO
+int invaders_ufo_spawn_ticks = invaders_ufo_spawn_ticks_max;
+int invaders_low_ticks_max = 20; //animation ticks
+int invaders_med_ticks_max = 50; //animation ticks
+int invaders_high_ticks_max = 100; //animation ticks
+int invaders_increment = invaders_step_size;
+int invaders_drop_down_next = 0; //drop down flag
+int invaders_drop_down_now = 0; //drop down flag
+int invaders_ufo_spawn_chance = 50;
+int invaders_ufo_space = (invaders_ufo_w * 3);
+int invaders_death_animation = 5; //how many ticks the death sprite stays up
+int invaders_ufo_points_animation = 8; //how many ticks the points stay up
+int invaders_low_title_x = (startup_window_width / 2) - invaders_low_w - 120;
+int invaders_med_title_x = (startup_window_width / 2) - invaders_med_w;
+int invaders_high_title_x = (startup_window_width / 2) - invaders_high_w + 120;
+int invaders_title_y = (startup_window_height / 8) * 3;
+int invaders_y_lowest_limit1 = barrier_y + barrier_h + 1; //prevent the invaders from starting any lower than this
+int invaders_y_lowest_limit2 = invaders_h + invaders_y_space + invaders_y_lowest_limit1;
+int invaders_y_lowest_limit3 = invaders_h + invaders_y_space + invaders_y_lowest_limit2;
+int invaders_y_lowest_limit4 = invaders_h + invaders_y_space + invaders_y_lowest_limit3;
+int invaders_y_lowest_limit5 = invaders_h + invaders_y_space + invaders_y_lowest_limit4;
+
+//Create Invader Bullets
+forward animation beam_anim(pixmap beam);
+int beam_speed = 10;
+double beam_damage = 0.04;
+int beams_ticks_max = 10; //animation speed
+int beams_ticks = beams_ticks_max;
+int beam_chance = 10;
+int beam_random_chance = beam_chance;
+int beam_w = 3;
+int beam_h = 7;
+int beam_space = beam_h * 3;
+pixmap invaders_low_beams[invaders_low_count_max];
+pixmap invaders_med_beams[invaders_med_count_max];
+pixmap invaders_high_beams[invaders_high_count_max];
+
+//Create Background Stars
+forward animation stars_anim(rectangle star);
+int stars_count = 250;
+int star_w = 1;
+int star_h = 1;
+int star_speed = 1;
+int star_space = star_h * 3;
+int star_chance = 1000;
+rectangle stars[stars_count];
+//=========================================================================================
+
+
+
+//Initialization
+//=========================================================================================
+initialization
+{
+    //Initialize the Stars
+    for (i = 0; i < stars_count; i += 1)
+    {
+        stars[i].w = star_w;
+        stars[i].h = star_h;
+        stars[i].visible = 1;
+        stars[i].animation_block = stars_anim;
+        stars[i].red = 1;
+        stars[i].blue = 1;
+        stars[i].green = 1;
+        stars[i].drawing_order = 0;
+        if (!random(2))
+        {
+            stars[i].x = random(startup_window_width + 1);
+            stars[i].y = random(startup_window_height + 1);
+        }
+        else
+        {
+            stars[i].x = oblivion;
+            stars[i].y = oblivion;
+        }
+    }
+    
+    //Initialize the Barriers
+    for (i = 0; i < barriers_count_max; i += 1)
+    {
+        barriers[i].w = barrier_w;
+        barriers[i].h = barrier_h;
+        barriers[i].red = 0;
+        barriers[i].blue = 0;
+        barriers[i].green = 1;
+        barriers[i].drawing_order = 3;
+        barriers[i].visible = 0;
+        barriers[i].x = oblivion;
+        barriers[i].y = oblivion;
+    }
+    
+    //Initialize Invaders
+    //Low Invaders
+    for (i = 0; i < invaders_low_count_max; i += 1)
+    {
+        invaders_low[i].animation_block = invader_low_anim;
+        invaders_low[i].filename = "InvaderLow1.bmp";
+        invaders_low[i].user_int = invaders_low_ticks_max;
+        invaders_low[i].drawing_order = 5;
+        invaders_low[i].visible = 0;
+        invaders_low[i].x = oblivion;
+        invaders_low[i].y = oblivion;
+        //Initialize Bullets
+        invaders_low_beams[i].filename = "Beam1.bmp";
+        invaders_low_beams[i].animation_block = beam_anim;
+        invaders_low_beams[i].user_int = i;
+        invaders_low_beams[i].user_int2 = beams_ticks_max;
+        invaders_low_beams[i].visible = 0;
+        invaders_low_beams[i].x = oblivion;
+        invaders_low_beams[i].y = oblivion;
+        invaders_low_beams[i].drawing_order = 1;
+    }
+
+    //Medium Invaders
+    for (i = 0; i < invaders_med_count_max; i += 1)
+    {
+        invaders_med[i].filename = "InvaderMed1.bmp";
+        invaders_med[i].animation_block = invader_med_anim;
+        invaders_med[i].user_int = invaders_med_ticks_max;
+        invaders_med[i].drawing_order = 5;
+        invaders_med[i].visible = 0;
+        invaders_med[i].x = oblivion;
+        invaders_med[i].y = oblivion;
+        //Initialize Bullets
+        invaders_med_beams[i].filename = "Beam1.bmp";
+        invaders_med_beams[i].animation_block = beam_anim;
+        invaders_med_beams[i].user_int = i + 100;
+        invaders_med_beams[i].user_int2 = beams_ticks_max;
+        invaders_med_beams[i].visible = 0;
+        invaders_med_beams[i].x = oblivion;
+        invaders_med_beams[i].y = oblivion;
+        invaders_med_beams[i].drawing_order = 1;
+    }
+
+    //High Invaders
+    for (i = 0; i < invaders_high_count_max; i += 1)
+    {
+        invaders_high[i].filename = "InvaderHigh1.bmp";
+        invaders_high[i].animation_block = invader_high_anim;
+        invaders_high[i].user_int = invaders_high_ticks_max;
+        invaders_high[i].drawing_order = 5;
+        invaders_high[i].visible = 0;
+        invaders_high[i].x = oblivion;
+        invaders_high[i].y = oblivion;
+        //Initialize Bullets
+        invaders_high_beams[i].filename = "Beam1.bmp";
+        invaders_high_beams[i].animation_block = beam_anim;
+        invaders_high_beams[i].user_int = i + 200;
+        invaders_high_beams[i].user_int2 = beams_ticks_max;
+        invaders_high_beams[i].visible = 0;
+        invaders_high_beams[i].x = oblivion;
+        invaders_high_beams[i].y = oblivion;
+        invaders_high_beams[i].drawing_order = 1;
+    }
+    
+    //Initialize the Tank
+    tank_body.visible = 0;
+    tank_turret_base.visible = 0;
+    tank_turret_tip.visible = 0;
+    
+    //Display the Title Screen
+    new_level = 0;
+    title_screen = 1;
+    level_title.text = level_title_startup;
+    level_title.x = level_title_startup_x;
+    level_title.visible = 1;
+    invaders_low[0].x = invaders_low_title_x;
+    invaders_low[0].y = invaders_title_y;
+    invaders_med[0].x = invaders_med_title_x;
+    invaders_med[0].y = invaders_title_y;
+    invaders_high[0].x = invaders_high_title_x;
+    invaders_high[0].y = invaders_title_y;
+    invaders_low[0].visible = 1;
+    invaders_med[0].visible = 1;
+    invaders_high[0].visible = 1;
+}
+//=========================================================================================
+
+
+
+//Animation Blocks
+//=========================================================================================
+//Animation block for the tank bullet
+//This is the most important animation block, as other objects must determine what to do
+//based upon if the bullet hits them or not.
+//This area seems rather hackish, in my opinion.
+//I'm sure it could be reorganized and improved.
+//However, much of the extra bloat here is due to the lack of functions.
+animation tank_bullet_anim(rectangle bullet)
+{
+    if (!paused && !title_screen)
+    {
+        //Move the bullet
+        if (bullet.y < startup_window_height && bullet.visible)
+        { //move the bullet up
+            bullet.y += 15;
+        }
+        else if (bullet.y >= startup_window_height) //destroy the bullet
+        {
+            bullet.visible = 0;
+            bullet.x = tank_bullet_x;
+            bullet.y = tank_bullet_y;
+            reload_count = 0;
+        }
+        //Check to see if the bullet hit a barrier
+        for (i = 0; i < barriers_count_max; i += 1)
+        {
+            if (bullet touches barriers[i] && barriers[i].visible)
+            {
+                //Destroy the bullet
+                if (!god_mode)
+                {
+                    bullet.visible = 0;
+                    bullet.x = tank_bullet_x;
+                    bullet.y = tank_bullet_y;
+                }
+                //Change the color of the barrier
+                barriers[i].green -= tank_bullet_damage;
+                if (barriers[i].green <= 0.2)
+                {
+                    barriers[i].visible = 0;
+                }
+            }
+        }
+        if (level_ready)
+        {
+            //Check to see if the bullet hit a low invader
+            for (i = 0; i < invaders_low_count_max; i += 1)
+            {
+                if (bullet touches invaders_low[i] && invaders_low[i].visible)
+                {
+                    //Kill the invader
+                    invaders_low[i].filename = "InvaderLow3.bmp";
+                    invaders_low[i].user_int = invaders_death_animation;
+                    invaders_count -= 1;
+                    //Destroy the bullet
+                    if (!god_mode)
+                    {
+                        bullet.visible = 0;
+                        bullet.x = tank_bullet_x;
+                        bullet.y = tank_bullet_y;
+                    }
+                    //Award points
+                    score += invaders_low_points;
+                    score_title.text = "SCORE: " + score;
+                    //Award new life
+                    points_to_new_life -= invaders_low_points;
+                    if (points_to_new_life <= 0)
+                    {
+                        lives += 1;
+                        lives_title.text = "LIVES: " + lives;
+                        points_to_new_life += new_life;
+                    }
+                    //Check for high score
+                    if (score > high_score)
+                    {
+                        high_score = score;
+                        high_score_title.text = "HIGH SCORE: " + high_score;
+                    }
+                }
+                else if (invaders_low[i].visible && !invaders_ticks && !invaders_drop_down_now)
+                {
+                    invaders_low[i].x += invaders_increment;
+                    if ((invaders_low[i].x <= invaders_low_start_x)
+                        || (invaders_low[i].x + invaders_low_w) >= (startup_window_width - invaders_low_start_x))
+                    { //Check if the invaders need to move down
+                        invaders_drop_down_next = 1; //set the flag if so
+                    }
+                }
+                //Kill runaway invaders!
+                if (invaders_low[i].visible
+                    && invaders_low[i].y <= -(invaders_h / 4))
+                {
+                        invaders_low[i].visible = 0;
+                        invaders_count -= 1;
+                }
+                //Check the barriers
+                for (j = 0; j < barriers_count_max; j += 1)
+                {
+                    if (barriers[j].visible)
+                    {
+                        //Destroy any barriers that the invaders touch
+                        if (invaders_low[i] touches barriers[j])
+                        {
+                            barriers[j].visible = 0;
+                        }
+                        //Damage any barriers that the beams hit
+                        if (invaders_low_beams[i] touches barriers[j])
+                        {
+                            barriers[j].green -= beam_damage + ((level - 1) / 100);
+                            if (barriers[j].green < 0.2)
+                            {
+                                barriers[j].visible = 0;
+                            }
+                            //Destroy the beam
+                            invaders_low_beams[i].visible = 0;
+                            invaders_low_beams[i].x = oblivion;
+                            invaders_low_beams[i].y = oblivion;
+                        }
+                    }
+                }
+                if (tank_body.visible)
+                {
+                    //Kill the Tank if the Invader touches it
+                    if (invaders_low[i] touches tank_body)
+                    {
+                        tank_body.visible = 0;
+                        tank_turret_base.visible = 0;
+                        tank_turret_tip.visible = 0;
+                        //Show the explosion
+                        tank_explosion.x = tank_body.x;
+                        tank_explosion.y = tank_body.y;
+                        tank_explosion.filename = "TankDeath1.bmp";
+                        tank_explosion.user_int = tank_death_animation;
+                        tank_explosion.visible = 1;
+                    }
+                    //Kill the Tank if a Beam hits it
+                    if (invaders_low_beams[i] touches tank_body)
+                    {
+                        tank_body.visible = 0;
+                        tank_turret_base.visible = 0;
+                        tank_turret_tip.visible = 0;
+                        //Show the explosion
+                        tank_explosion.x = tank_body.x;
+                        tank_explosion.y = tank_body.y;
+                        tank_explosion.filename = "TankDeath1.bmp";
+                        tank_explosion.user_int = tank_death_animation;
+                        tank_explosion.visible = 1;
+                        //Destroy the beam
+                        invaders_low_beams[i].visible = 0;
+                        invaders_low_beams[i].x = oblivion;
+                        invaders_low_beams[i].y = oblivion;
+                    }
+                }
+                //Move the beams
+                if (invaders_low_beams[i].visible)
+                {
+                    invaders_low_beams[i].y -= beam_speed;
+                    if (invaders_low_beams[i].y < -beam_space)
+                    {
+                        //Destroy the beam
+                        invaders_low_beams[i].visible = 0;
+                        invaders_low_beams[i].x = oblivion;
+                        invaders_low_beams[i].y = oblivion;
+                    }
+                }
+            }
+            //Check to see if the bullet hit a med invader
+            for (i = 0; i < invaders_med_count_max; i += 1)
+            {
+                if (bullet touches invaders_med[i] && invaders_med[i].visible)
+                {
+                    //Kill the invader
+                    invaders_med[i].filename = "InvaderMed3.bmp";
+                    invaders_med[i].user_int = invaders_death_animation;
+                    invaders_count -= 1;
+                    //Destroy the bullet
+                    if (!god_mode)
+                    {
+                        bullet.visible = 0;
+                        bullet.x = tank_bullet_x;
+                        bullet.y = tank_bullet_y;
+                    }
+                    //Award points
+                    score += invaders_med_points;
+                    score_title.text = "SCORE: " + score;
+                    //Award new life
+                    points_to_new_life -= invaders_med_points;
+                    if (points_to_new_life <= 0)
+                    { 
+                        lives += 1;
+                        lives_title.text = "LIVES: " + lives;
+                        points_to_new_life += new_life;
+                    }
+                    //Check for high score
+                    if (score > high_score)
+                    {
+                        high_score = score;
+                        high_score_title.text = "HIGH SCORE: " + high_score;
+                    }
+                }
+                else if (invaders_med[i].visible && !invaders_ticks && !invaders_drop_down_now)
+                {
+                    invaders_med[i].x += invaders_increment;
+                    if ((invaders_med[i].x <= invaders_med_start_x)
+                        || (invaders_med[i].x + invaders_med_w) >= (startup_window_width - invaders_med_start_x))
+                    { //Check if the invaders need to move down
+                        invaders_drop_down_next = 1; //set the flag if so
+                    }
+                }
+                //Kill runaway invaders!
+                if (invaders_med[i].visible
+                    && invaders_med[i].y <= -(invaders_h / 4))
+                {
+                        invaders_med[i].visible = 0;
+                        invaders_count -= 1;
+                }
+                //Check the barriers
+                for (j = 0; j < barriers_count_max; j += 1)
+                {
+                    if (barriers[j].visible)
+                    {
+                        //Destroy any barriers that the invaders touch
+                        if (invaders_med[i] touches barriers[j])
+                        {
+                            barriers[j].visible = 0;
+                        }
+                        //Damage any barriers that the beams hit
+                        if (invaders_med_beams[i] touches barriers[j])
+                        {
+                            barriers[j].green -= beam_damage;
+                            if (barriers[j].green < 0.2)
+                            {
+                                barriers[j].visible = 0;
+                            }
+                            //Destroy the beam
+                            invaders_med_beams[i].visible = 0;
+                            invaders_med_beams[i].x = oblivion;
+                            invaders_med_beams[i].y = oblivion;
+                        }
+                    }
+                }
+                if (tank_body.visible) 
+                {
+                    //Kill the Tank if the Invader touches it
+                    if (invaders_med[i] touches tank_body)
+                    {
+                        tank_body.visible = 0;
+                        tank_turret_base.visible = 0;
+                        tank_turret_tip.visible = 0;
+                        //Show the explosion
+                        tank_explosion.x = tank_body.x;
+                        tank_explosion.y = tank_body.y;
+                        tank_explosion.filename = "TankDeath1.bmp";
+                        tank_explosion.user_int = tank_death_animation;
+                        tank_explosion.visible = 1;
+                    }   
+                    //Kill the Tank if a Beam hits it
+                    if (invaders_med_beams[i] touches tank_body)
+                    {
+                        tank_body.visible = 0;
+                        tank_turret_base.visible = 0;
+                        tank_turret_tip.visible = 0;
+                        //Show the explosion
+                        tank_explosion.x = tank_body.x;
+                        tank_explosion.y = tank_body.y;
+                        tank_explosion.filename = "TankDeath1.bmp";
+                        tank_explosion.user_int = tank_death_animation;
+                        tank_explosion.visible = 1;
+                        //Destroy the beam
+                        invaders_med_beams[i].visible = 0;
+                        invaders_med_beams[i].x = oblivion;
+                        invaders_med_beams[i].y = oblivion;
+                    }   
+                }
+                //Move the beams
+                if (invaders_med_beams[i].visible)
+                {
+                    invaders_med_beams[i].y -= beam_speed;
+                    if (invaders_med_beams[i].y < -beam_space)
+                    {
+                        //Destroy the beam
+                        invaders_med_beams[i].visible = 0;
+                        invaders_med_beams[i].x = oblivion;
+                        invaders_med_beams[i].y = oblivion;
+                    }
+                }
+            }
+            //Check to see if the bullet hit a high invader
+            for (i = 0; i < invaders_high_count_max; i += 1)
+            {
+                if (bullet touches invaders_high[i] && invaders_high[i].visible)
+                {
+                    //Kill the invader
+                    invaders_high[i].filename = "InvaderHigh3.bmp";
+                    invaders_high[i].user_int = invaders_death_animation;
+                    invaders_count -= 1;
+                    //Destroy the bullet
+                    if (!god_mode)
+                    {
+                        bullet.visible = 0;
+                        bullet.x = tank_bullet_x;
+                        bullet.y = tank_bullet_y;
+                    }
+                    //Award points
+                    score += invaders_high_points;
+                    score_title.text = "SCORE: " + score;
+                    //Award new life
+                    points_to_new_life -= invaders_high_points;
+                    if (points_to_new_life <= 0)
+                    { 
+                        lives += 1;
+                        lives_title.text = "LIVES: " + lives;
+                        points_to_new_life += new_life;
+                    }
+                    //Check for high score
+                    if (score > high_score)
+                    {
+                        high_score = score;
+                        high_score_title.text = "HIGH SCORE: " + high_score;
+                    }
+                }
+                else if (invaders_high[i].visible && !invaders_ticks && !invaders_drop_down_now)
+                {
+                    invaders_high[i].x += invaders_increment;
+                    if ((invaders_high[i].x <= invaders_high_start_x)
+                        || (invaders_high[i].x + invaders_high_w) >= (startup_window_width - invaders_high_start_x))
+                    { //Check if the invaders need to move down
+                        invaders_drop_down_next = 1; //set the flag if so
+                    }
+                }
+                //Kill runaway invaders!
+                if (invaders_high[i].visible
+                    && invaders_high[i].y <= -(invaders_h / 4))
+                {
+                        invaders_high[i].visible = 0;
+                        invaders_count -= 1;
+                }
+                //Check the barriers
+                for (j = 0; j < barriers_count_max; j += 1)
+                {
+                    if (barriers[j].visible)
+                    {
+                        //Destroy any barriers that the invaders touch
+                        if (invaders_high[i] touches barriers[j])
+                        {
+                            barriers[j].visible = 0;
+                        }
+                        //Damage any barriers that the beams hit
+                        if (invaders_high_beams[i] touches barriers[j])
+                        {
+                            barriers[j].green -= beam_damage;
+                            if (barriers[j].green < 0.2)
+                            {
+                                barriers[j].visible = 0;
+                            }
+                            //Destroy the beam
+                            invaders_high_beams[i].visible = 0;
+                            invaders_high_beams[i].x = oblivion;
+                            invaders_high_beams[i].y = oblivion;
+                        }
+                    }
+                }
+                if (tank_body.visible) 
+                {
+                    //Kill the Tank if the Invader touches it
+                    if (invaders_high[i] touches tank_body)
+                    {
+                        tank_body.visible = 0;
+                        tank_turret_base.visible = 0;
+                        tank_turret_tip.visible = 0;
+                        //Show the explosion
+                        tank_explosion.x = tank_body.x;
+                        tank_explosion.y = tank_body.y;
+                        tank_explosion.filename = "TankDeath1.bmp";
+                        tank_explosion.user_int = tank_death_animation;
+                        tank_explosion.visible = 1;
+                    }   
+                    //Kill the Tank if a Beam hits it
+                    if (invaders_high_beams[i] touches tank_body)
+                    {
+                        tank_body.visible = 0;
+                        tank_turret_base.visible = 0;
+                        tank_turret_tip.visible = 0;
+                        //Show the explosion
+                        tank_explosion.x = tank_body.x;
+                        tank_explosion.y = tank_body.y;
+                        tank_explosion.filename = "TankDeath1.bmp";
+                        tank_explosion.user_int = tank_death_animation;
+                        tank_explosion.visible = 1;
+                        //Destroy the beam
+                        invaders_high_beams[i].visible = 0;
+                        invaders_high_beams[i].x = oblivion;
+                        invaders_high_beams[i].y = oblivion;
+                    }   
+                }
+                //Move the beams
+                if (invaders_high_beams[i].visible)
+                {
+                    invaders_high_beams[i].y -= beam_speed;
+                    if (invaders_high_beams[i].y < -beam_space)
+                    {
+                        //Destroy the beam
+                        invaders_high_beams[i].visible = 0;
+                        invaders_high_beams[i].x = oblivion;
+                        invaders_high_beams[i].y = oblivion;
+                    }
+                }
+            }
+
+            //Move the invaders down if necessary
+            if (invaders_drop_down_next)
+            { //Prepare to drop down next turn
+                invaders_drop_down_next = 0;
+                invaders_drop_down_now = 1;
+            }
+            else if (invaders_drop_down_now && !invaders_ticks)
+            { //Drop down now
+                invaders_drop_down_now = 0;
+                invaders_increment = -invaders_increment;
+                for (i = 0; i < invaders_low_count_max; i += 1)
+                {
+                    invaders_low[i].y -= invaders_h + invaders_y_space;
+                }
+                for (i = 0; i < invaders_med_count_max; i += 1)
+                {
+                    invaders_med[i].y -= invaders_h + invaders_y_space;
+                }
+                for (i = 0; i < invaders_high_count_max; i += 1)
+                {
+                    invaders_high[i].y -= invaders_h + invaders_y_space;
+                }
+            }
+            
+            //Decrement the invaders_ticks
+            if (invaders_ticks > 0)
+            {   
+                invaders_ticks -= 1;
+            }
+            else
+            {
+                if (invaders_count <= (level - 1))
+                { //Prevent negative ticks
+                    invaders_ticks = 0;
+                }
+                else
+                {
+                    invaders_ticks = invaders_count - (level - 1);
+                }
+            }
+
+            //This level is complete
+            if (invaders_count <= 0)
+            {
+                level_ready = 0;
+                new_level = 1;
+            }
+        }
+        
+        //Recreate the level if necessary
+        if (level_ready_to_spawn)
+        {
+            level_ready_to_spawn = 0;
+            //Initialize the Barriers
+            for (i = 0; i < barriers_count_max; i += 1)
+            {
+                barriers[i].w = barrier_w;
+                barriers[i].h = barrier_h;
+                barriers[i].red = 0;
+                barriers[i].blue = 0;
+                barriers[i].green = 1;
+                barriers[i].drawing_order = 3;
+                barriers[i].visible = 1;
+                if (i % 3 == 0)
+                {
+                    barriers[i].y = barrier_y;
+                }
+                else if (i % 3 == 1)
+                {
+                    barriers[i].y = barrier_y + barrier_h;
+                }
+                else
+                {
+                    barriers[i].y = barrier_y + (2 * barrier_h);
+                }
+                if (i % 9 == 3)
+                {
+                    barriers[i].visible = 0;
+                }
+            }
+
+            //Set up x coordinates
+            //First Barrier
+            for (i = 0; i < 3; i += 1)
+            {
+                barriers[i].x = barrier_x1;
+            }
+            for (i = 3; i < 6; i += 1)
+            {
+                barriers[i].x = barrier_x1 + barrier_w;
+            }
+            for (i = 6; i < 9; i += 1)
+            {
+                barriers[i].x = barrier_x1 + (2 * barrier_w);
+            }
+            
+            //Second Barrier
+            for (i = 9; i < 12; i += 1)
+            {
+                barriers[i].x = barrier_x2;
+            }
+            for (i = 12; i < 15; i += 1)
+            {
+                barriers[i].x = barrier_x2 + barrier_w;
+            }
+            for (i = 15; i < 18; i += 1)
+            {
+                barriers[i].x = barrier_x2 + (2 * barrier_w);
+            }
+
+            //Third Barrier
+            for (i = 18; i < 21; i += 1)
+            {
+                barriers[i].x = barrier_x3;
+            }
+            for (i = 21; i < 24; i += 1)
+            {
+                barriers[i].x = barrier_x3 + barrier_w;
+            }
+            for (i = 24; i < 27; i += 1)
+            {
+                barriers[i].x = barrier_x3 + (2 * barrier_w);
+            }
+
+            //Fourth Barrier
+            for (i = 27; i < 30; i += 1)
+            {
+                barriers[i].x = barrier_x4;
+            }
+            for (i = 30; i < 33; i += 1)
+            {
+                barriers[i].x = barrier_x4 + barrier_w;
+            }
+            for (i = 33; i < 36; i += 1)
+            {
+                barriers[i].x = barrier_x4 + (2 * barrier_w);
+            }
+
+            //Initialize Invaders
+            //Low Invaders
+            invaders_low[0].x = invaders_low_start_x;
+            invaders_low[1].x = invaders_low_start_x;
+            for (i = 0; i < invaders_low_count_max; i += 1)
+            {
+                invaders_low[i].animation_block = invader_low_anim;
+                invaders_low[i].filename = "InvaderLow1.bmp";
+                invaders_low[i].user_int = invaders_low_ticks_max;
+                invaders_low[i].drawing_order = 5;
+                invaders_low[i].visible = 1;
+                //Set the y coordinates
+                if (i % 2 == 0)
+                {
+                    if (invaders_y1 - ((invaders_h + invaders_y_space) * (level - 1)) >= invaders_y_lowest_limit1)
+                    {
+                        invaders_low[i].y = invaders_y1 - ((invaders_h + invaders_y_space) * (level - 1));
+                    }
+                    else
+                    {
+                        invaders_low[i].y = invaders_y_lowest_limit1;
+                    }
+                }
+                else
+                {
+                    if (invaders_y2 - ((invaders_h + invaders_y_space) * (level - 1)) >= invaders_y_lowest_limit2)
+                    {
+                        invaders_low[i].y = invaders_y2 - ((invaders_h + invaders_y_space) * (level - 1));
+                    }
+                    else
+                    {
+                        invaders_low[i].y = invaders_y_lowest_limit2;
+                    }
+                }
+                //Set the x coordinates
+                if (i > 1)
+                {
+                    invaders_low[i].x = invaders_low[i-2].x + invaders_low_w + invaders_low_x_space;
+                }
+                //Initialize Bullets
+                invaders_low_beams[i].filename = "Beam1.bmp";
+                invaders_low_beams[i].animation_block = beam_anim;
+                invaders_low_beams[i].user_int = i;
+                invaders_low_beams[i].user_int2 = beams_ticks_max;
+                invaders_low_beams[i].visible = 0;
+                invaders_low_beams[i].x = oblivion;
+                invaders_low_beams[i].y = oblivion;
+                invaders_low_beams[i].drawing_order = 1;
+            }
+
+            //Medium Invaders
+            invaders_med[0].x = invaders_med_start_x;
+            invaders_med[1].x = invaders_med_start_x;
+            for (i = 0; i < invaders_med_count_max; i += 1)
+            {
+                invaders_med[i].filename = "InvaderMed1.bmp";
+                invaders_med[i].animation_block = invader_med_anim;
+                invaders_med[i].user_int = invaders_med_ticks_max;
+                invaders_med[i].drawing_order = 5;
+                invaders_med[i].visible = 1;
+                //Set the y coordinates
+                if (i % 2 == 0)
+                {
+                    if (invaders_y3 - ((invaders_h + invaders_y_space) * (level - 1)) >= invaders_y_lowest_limit3)
+                    {
+                        invaders_med[i].y = invaders_y3 - ((invaders_h + invaders_y_space) * (level - 1));
+                    }
+                    else
+                    {
+                        invaders_med[i].y = invaders_y_lowest_limit3;
+                    }
+                }   
+                else
+                {
+                    if (invaders_y4 - ((invaders_h + invaders_y_space) * (level - 1)) >= invaders_y_lowest_limit4)
+                    {
+                        invaders_med[i].y = invaders_y4 - ((invaders_h + invaders_y_space) * (level - 1));
+                    }
+                    else
+                    {
+                        invaders_med[i].y = invaders_y_lowest_limit4;
+                    }
+                }
+                //Set the x coordinates
+                if (i > 1)
+                {
+                    invaders_med[i].x = invaders_med[i-2].x + invaders_med_w + invaders_med_x_space;
+                }
+                //Initialize Bullets
+                invaders_med_beams[i].filename = "Beam1.bmp";
+                invaders_med_beams[i].animation_block = beam_anim;
+                invaders_med_beams[i].user_int = i + 100;
+                invaders_med_beams[i].user_int2 = beams_ticks_max;
+                invaders_med_beams[i].visible = 0;
+                invaders_med_beams[i].x = oblivion;
+                invaders_med_beams[i].y = oblivion;
+                invaders_med_beams[i].drawing_order = 1;
+            }
+
+            //High Invaders
+            invaders_high[0].x = invaders_high_start_x;
+            for (i = 0; i < invaders_high_count_max; i += 1)
+            {
+                invaders_high[i].filename = "InvaderHigh1.bmp";
+                invaders_high[i].animation_block = invader_high_anim;
+                invaders_high[i].user_int = invaders_high_ticks_max;
+                invaders_high[i].drawing_order = 5;
+                invaders_high[i].visible = 1;
+                if (invaders_y5 - ((invaders_h + invaders_y_space) * (level - 1)) >= invaders_y_lowest_limit5)
+                {
+                    invaders_high[i].y = invaders_y5 - ((invaders_h + invaders_y_space) * (level - 1));
+                }
+                else
+                {
+                    invaders_high[i].y = invaders_y_lowest_limit5;
+                }
+                if (i > 0)
+                {
+                    invaders_high[i].x = invaders_high[i-1].x + invaders_high_w + invaders_high_x_space;
+                }
+                //Initialize Bullets
+                invaders_high_beams[i].filename = "Beam1.bmp";
+                invaders_high_beams[i].animation_block = beam_anim;
+                invaders_high_beams[i].user_int = i + 200;
+                invaders_high_beams[i].user_int2 = beams_ticks_max;
+                invaders_high_beams[i].visible = 0;
+                invaders_high_beams[i].x = oblivion;
+                invaders_high_beams[i].y = oblivion;
+                invaders_high_beams[i].drawing_order = 1;
+                
+                invaders_increment = invaders_step_size + (level - 1);
+                invaders_count = invaders_count_max;
+                level_ready = 1;
+            }
+        }
+
+        //Check to see if the bullet hit a UFO
+        if (invaders_ufo.visible && bullet touches invaders_ufo)
+        {
+            //Kill the UFO
+            invaders_ufo.filename = "InvaderUFO2.bmp";
+            invaders_ufo.user_int3 = invaders_death_animation + invaders_ufo_points_animation;
+            //Destroy the bullet
+            if (!god_mode)
+            {
+                bullet.visible = 0;
+                bullet.x = tank_bullet_x;
+                bullet.y = tank_bullet_y;
+            }
+            //Award points (points for UFOs are random)
+            if (invaders_ufo.user_int2 == 0)
+            {
+                score += invaders_ufo_points1;
+                points_to_new_life -= invaders_ufo_points1;
+            }
+            else if (invaders_ufo.user_int2 == 1)
+            {
+                score += invaders_ufo_points2;
+                points_to_new_life -= invaders_ufo_points2;
+            }
+            else if (invaders_ufo.user_int2 == 2)
+            {
+                score += invaders_ufo_points3;
+                points_to_new_life -= invaders_ufo_points3;
+            }
+            else
+            {
+                score += invaders_ufo_points4;
+                points_to_new_life -= invaders_ufo_points4;
+            }
+            score_title.text = "SCORE: " + score;
+            //Award new life
+            if (points_to_new_life <= 0)
+            { 
+                lives += 1;
+                lives_title.text = "LIVES: " + lives;
+                points_to_new_life += new_life;
+            }
+            //Check for high score
+            if (score > high_score)
+            {
+                high_score = score;
+                high_score_title.text = "HIGH SCORE: " + high_score;
+            }
+        }
+
+        //Decrement the reload counter
+        if (reload_count > 0)
+        {   
+            reload_count -= 1;
+        }
+    }
+}
+
+//This animation block controls the beams that the invaders fire
+//These can damage the tank or the barriers
+animation beam_anim(pixmap beam)
+{
+    if (!paused && !title_screen)
+    {
+        beam.user_int2 -= 1;
+        //Make invaders shoot more often as levels progress
+        if (beam_random_chance >= 1)
+        {
+            beam_random_chance = (beam_chance * invaders_count) - ((level - 1) * 10);
+        }
+        if (beam_random_chance <= 0)
+        { //Prevent 0 or negative chance
+            beam_random_chance = 1;
+        }
+
+        if ((!beam.visible)
+            && ((invaders_count == 0)
+            || (!random(beam_random_chance))))
+        { //Fire a Shot
+            beam.visible = 1;
+            if (beam.user_int < 100) //Low Invader
+            {
+                beam.x = invaders_low[beam.user_int].x + (invaders_low_w / 2) - 1;
+                beam.y = invaders_low[beam.user_int].y;
+            }
+            else if (beam.user_int < 200) //Medium Invader
+            {
+                beam.x = invaders_med[beam.user_int-100].x + (invaders_med_w / 2) - 1;
+                beam.y = invaders_med[beam.user_int-100].y;
+            }
+            else //High Invader
+            {
+                beam.x = invaders_high[beam.user_int-200].x + (invaders_high_w / 2) - 1;
+                beam.y = invaders_high[beam.user_int-200].y;
+            }
+        }
+
+        //Animate the Beam
+        if (beam.user_int2 % beams_ticks_max == 0)
+        {   
+            beam.filename = "Beam2.bmp";
+        }   
+        else if (beam.user_int % (beams_ticks_max / 2) == 0)
+        {   
+            beam.filename = "Beam1.bmp";
+        }
+
+        //Reset the ticks if necessary
+        if (beam.user_int2 <= 0)
+        {
+            beam.user_int2 = beams_ticks_max;
+        }
+    }
+}
+
+//This controls the death animation of the tank (player)
+animation tank_death_anim(pixmap explosion)
+{
+    if (!paused && !title_screen)
+    {
+        if (explosion.user_int > 0)
+        {
+            explosion.user_int -= 1;
+            if (explosion.user_int == (tank_death_animation / 4) * 3)
+            { //Show part 2
+                explosion.filename = "TankDeath2.bmp";
+            }
+            else if (explosion.user_int == tank_death_animation / 2)
+            { //Show part 3
+                explosion.filename = "TankDeath3.bmp";
+            }
+            else if (explosion.user_int == tank_death_animation / 4)
+            { //Show part 4
+                explosion.filename = "TankDeath4.bmp";
+            }
+            else if (!explosion.user_int)
+            { //Hide the death animation
+                explosion.visible = 0;
+                explosion.x = oblivion;
+                explosion.y = oblivion;
+                tank_body.x = oblivion;  
+                tank_body.y = oblivion;
+                tank_turret_base.x = oblivion;
+                tank_turret_base.y = oblivion;
+                tank_turret_tip.x = oblivion;
+                tank_turret_tip.y = oblivion;
+                if (lives > 0)
+                {
+                    tips.text = tips_respawn;
+                    tips.x = tips_respawn_x;
+                    tips.visible = 1;
+                }
+                else
+                {
+                    tips.text = tips_game_over;
+                    tips.x = tips_game_over_x;
+                    tips.visible = 1;
+                    game_over = 1;
+                }
+                dead = 1; //set the death flag
+            }
+        }
+    }
+}
+
+//This allows the invaders at the low level to have changing sprites over time
+animation invader_low_anim(pixmap invader_low)
+{
+    if (!paused)
+    {
+        invader_low.user_int -= 1;
+
+        if (invader_low.filename != "InvaderLow3.bmp")
+        { //Animate the invader
+            //Animate the invader
+            if (invader_low.user_int % invaders_low_ticks_max == 0)
+            {
+                invader_low.filename = "InvaderLow2.bmp";
+            }
+            else if (invader_low.user_int % (invaders_low_ticks_max / 2) == 0)
+            {
+                invader_low.filename = "InvaderLow1.bmp";
+            }
+        }
+        else if (invader_low.user_int % invaders_death_animation == 0)
+        { //Hide the death animation
+            invader_low.visible = 0;
+            invader_low.x = oblivion;
+            invader_low.y = oblivion;
+        }
+
+        //Set the the ticks back to default if necessary
+        if (invader_low.user_int <= 0)
+        {
+            invader_low.user_int = invaders_low_ticks_max;
+        }
+    }
+}
+
+//This allows the invaders at the medium level to have changing sprites over time
+animation invader_med_anim(pixmap invader_med)
+{
+    if (!paused)
+    {
+        invader_med.user_int -= 1;
+
+        if (invader_med.filename != "InvaderMed3.bmp")
+        { //Animate the invader
+            //Animate the invader
+            if (invader_med.user_int % invaders_med_ticks_max == 0)
+            {    
+                invader_med.filename = "InvaderMed2.bmp";
+            }    
+            else if (invader_med.user_int % (invaders_med_ticks_max / 2) == 0)
+            {
+                invader_med.filename = "InvaderMed1.bmp";
+            }        
+        }        
+        else if (invader_med.user_int % invaders_death_animation == 0)
+        { //Hide the death animation
+            invader_med.visible = 0;
+            invader_med.x = oblivion;
+            invader_med.y = oblivion;
+        }
+
+        //Set the the ticks back to default if necessary
+        if (invader_med.user_int <= 0)
+        {
+            invader_med.user_int = invaders_med_ticks_max;
+        }
+    }
+}
+
+//This allows the invaders at the high level to have changing sprites over time
+animation invader_high_anim(pixmap invader_high)
+{
+    if (!paused)
+    {
+        invader_high.user_int -= 1;
+
+        if (invader_high.filename != "InvaderHigh3.bmp")
+        { //Animate the invader
+            //Animate the invader
+            if (invader_high.user_int % invaders_high_ticks_max == 0)
+            {    
+                invader_high.filename = "InvaderHigh2.bmp";
+            }    
+            else if (invader_high.user_int % (invaders_high_ticks_max / 2) == 0)
+            {
+                invader_high.filename = "InvaderHigh1.bmp";
+            }        
+        }        
+        else if (invader_high.user_int % invaders_death_animation == 0)
+        { //Hide the death animation
+            invader_high.visible = 0;
+            invader_high.x = oblivion;
+            invader_high.y = oblivion;
+        }
+
+        //Set the the ticks back to default if necessary
+        if (invader_high.user_int <= 0)
+        {
+            invader_high.user_int = invaders_high_ticks_max;
+        }
+    }
+}
+
+//This controls the UFO's spawn and movement
+animation invader_ufo_anim(pixmap invader_ufo)
+{
+    if (!paused && !title_screen)
+    {
+        invaders_ufo_ticks -= 1;
+        invaders_ufo_spawn_ticks -= 1;
+
+        if (!invaders_ufo_ticks && invader_ufo.visible)
+        { //Move the UFO
+            if (invader_ufo.user_int) 
+            { //go right
+                invader_ufo.x += invaders_ufo_step_size + (level - 1);
+            } 
+            else
+            { //go left
+                invader_ufo.x -= invaders_ufo_step_size + (level - 1);
+            }
+            if ((invader_ufo.x > (startup_window_width + invaders_ufo_space + invaders_ufo_w))   
+                || (invader_ufo.x < (0 - invader_ufo.w - invaders_ufo_space)))
+            { //UFO has gone offscreen
+                invader_ufo.visible = 0;
+                invader_ufo.x = oblivion;
+                invader_ufo.y = oblivion;
+            }
+        }
+        if (!invaders_ufo_spawn_ticks && !invaders_ufo.visible
+            && random(invaders_ufo_spawn_chance))
+        { //Spawn the UFO
+            invader_ufo.filename = "InvaderUFO1.bmp";
+            invader_ufo.visible = 1;
+            invader_ufo.user_int2 = random(4);
+            invader_ufo.y = invaders_y6;
+            //Determine direction
+            if (random(2))
+            { //go right
+                invader_ufo.user_int = 1;
+                invader_ufo.x = 0 - invader_ufo.w - invaders_ufo_space;
+            }
+            else
+            { //go left
+                invader_ufo.user_int = 0;
+                invader_ufo.x = startup_window_width + invader_ufo.w + invaders_ufo_space;   
+            }
+        }
+
+        //Handle the death animation
+        if (invader_ufo.user_int3 > 0)
+        {
+            invader_ufo.user_int3 -= 1; 
+            if (invader_ufo.user_int3 <= 0)
+            { //Hide the death animation
+                invader_ufo.visible = 0;
+                invader_ufo.x = oblivion;
+                invader_ufo.y = oblivion;
+            }
+            else if (invader_ufo.user_int3 == invaders_ufo_points_animation)
+            { //Show the point value
+                if (invader_ufo.user_int2 == 0)
+                {
+                    invader_ufo.filename = "InvaderUFO300.bmp";
+                }
+                else if (invader_ufo.user_int2 == 1)
+                {
+                    invader_ufo.filename = "InvaderUFO500.bmp";
+                }
+                else if (invader_ufo.user_int2 == 2)
+                {
+                    invader_ufo.filename = "InvaderUFO700.bmp";
+                }
+                else
+                {
+                    invader_ufo.filename = "InvaderUFO1000.bmp";
+                }
+            }
+        }
+
+        //Reset the ticks if necessary
+        if (invaders_ufo_ticks <= 0)
+        {
+            invaders_ufo_ticks = invaders_ufo_ticks_max;
+        }
+        if (invaders_ufo_spawn_ticks <= 0)
+        {
+            invaders_ufo_spawn_ticks = invaders_ufo_spawn_ticks_max;
+        }
+    }
+}
+
+//This controls the stars movement in the background
+//It also makes the tank and beam flash if GOD MODE is enabled
+animation stars_anim(rectangle star)
+{
+    //Animate the stars
+    if (!paused)
+    {
+        if (star.visible)
+        { //Move the star
+            star.y -= star_speed;
+            if (star.y < -star_space)
+            {
+                star.visible = 0;
+            }
+        }
+        else if (!random(star_chance))
+        { //Spawn the star
+            star.visible = 1;
+            star.x = random(startup_window_width + 1);
+            star.y = startup_window_height + 1;
+        }
+    }
+    
+    //Rainbow Tank and Bullets on God Mode
+    if (god_mode && tank_body.visible)
+    {
+        rainbow_power_ticks -= 1;
+        if (!rainbow_power_ticks)
+        { //Redundunt code coming up! Everyone's favorite!
+            rainbow_power_ticks = rainbow_power_ticks_max;
+            //Cycle through colors
+            if (rainbow_power == 0)
+            { //Increment all reds
+                tank_body.red += rainbow_power_increment;
+                tank_turret_base.red += rainbow_power_increment;
+                tank_turret_tip.red += rainbow_power_increment;
+                tank_bullet.red += rainbow_power_increment;
+                if (tank_body.red >= 1)
+                {
+                    rainbow_power += 1;
+                }
+            }
+            else if (rainbow_power == 1)
+            { //Increment all blues
+                tank_body.blue += rainbow_power_increment;
+                tank_turret_base.blue += rainbow_power_increment;
+                tank_turret_tip.blue += rainbow_power_increment;
+                tank_bullet.blue += rainbow_power_increment;
+                if (tank_body.blue >= 1)
+                {
+                    rainbow_power += 1;
+                }
+            }
+            else if (rainbow_power == 2)
+            { //Increment all greens
+                tank_body.green += rainbow_power_increment;
+                tank_turret_base.green += rainbow_power_increment;
+                tank_turret_tip.green += rainbow_power_increment;
+                tank_bullet.green += rainbow_power_increment;
+                if (tank_body.green >= 1)
+                {
+                    rainbow_power += 1;
+                }
+            }
+            else if (rainbow_power == 3)
+            { //Decrement all reds
+                tank_body.red -= rainbow_power_increment;
+                tank_turret_base.red -= rainbow_power_increment;
+                tank_turret_tip.red -= rainbow_power_increment;
+                tank_bullet.red -= rainbow_power_increment;
+                if (tank_body.red <= 0)
+                {
+                    rainbow_power += 1;
+                }
+            }
+            else if (rainbow_power == 4)
+            { //Decrement all blues
+                tank_body.blue -= rainbow_power_increment;
+                tank_turret_base.blue -= rainbow_power_increment;
+                tank_turret_tip.blue -= rainbow_power_increment;
+                tank_bullet.blue -= rainbow_power_increment;
+                if (tank_body.blue <= 0)
+                {
+                    rainbow_power += 1;
+                }
+            }
+            else if (rainbow_power == 5)
+            { //Increment all reds
+                tank_body.red += rainbow_power_increment;
+                tank_turret_base.red += rainbow_power_increment;
+                tank_turret_tip.red += rainbow_power_increment;
+                tank_bullet.red += rainbow_power_increment;
+                if (tank_body.red >= 1)
+                {
+                    rainbow_power += 1;
+                }
+            }
+            else if (rainbow_power == 6)
+            { //Increment all blues
+                tank_body.blue += rainbow_power_increment;
+                tank_turret_base.blue += rainbow_power_increment;
+                tank_turret_tip.blue += rainbow_power_increment;
+                tank_bullet.blue += rainbow_power_increment;
+                if (tank_body.blue >= 1)
+                {
+                    rainbow_power += 1;
+                }
+            }
+            else if (rainbow_power == 7)
+            { //Decrement all greens
+                tank_body.green -= rainbow_power_increment;
+                tank_turret_base.green -= rainbow_power_increment;
+                tank_turret_tip.green -= rainbow_power_increment;
+                tank_bullet.green -= rainbow_power_increment;
+                if (tank_body.green <= rainbow_power_threshold)
+                {
+                    rainbow_power += 1;
+                }
+            }
+            else if (rainbow_power == 8)
+            { //Decrement all reds
+                tank_body.red -= rainbow_power_increment;
+                tank_turret_base.red -= rainbow_power_increment;
+                tank_turret_tip.red -= rainbow_power_increment;
+                tank_bullet.red -= rainbow_power_increment;
+                if (tank_body.red <= 0)
+                {
+                    rainbow_power += 1;
+                }
+            }
+            else if (rainbow_power == 9)
+            { //Decrement all blues
+                tank_body.blue -= rainbow_power_increment;
+                tank_turret_base.blue -= rainbow_power_increment;
+                tank_turret_tip.blue -= rainbow_power_increment;
+                tank_bullet.blue -= rainbow_power_increment;
+                if (tank_body.blue <= 0)
+                {
+                    rainbow_power = 0;
+                }
+            }
+        }
+    }
+}
+
+//This controls the level # text that comes up before a stage starts
+animation level_title_anim(textbox level_title_text)
+{
+    if (!paused)
+    {
+        if (level_title.user_int > 0 && tank_body.visible)
+        {
+            level_title.user_int -= 1;
+            if (level_title.user_int <= 0)
+            {
+                level_title.visible = 0;
+                level_ready_to_spawn = 1;
+            }
+        }
+        else if (new_level && !game_over)
+        {
+            new_level = 0;
+            level_ready_to_spawn = 0;
+            level += 1;
+            level_title.x = level_title_x;
+            level_title.text = "LEVEL " + level;
+            level_title.visible = 1;
+            level_title.user_int = level_title_animation;
+        }
+    }
+}
+//=========================================================================================
+
+
+
+//Event Blocks
+//=========================================================================================
+//This moves the tank to the left
+on leftarrow
+{
+    if (!paused && !title_screen)
+    {
+        if (tank_body.x > 0 && tank_body.visible)
+        {
+            tank_body.x -= tank_step_size;
+            tank_turret_base.x -= tank_step_size;
+            tank_turret_tip.x -= tank_step_size;
+            //Prevent the player from pushing the tank off screen
+            if (tank_body.x < 0)
+            {
+                tank_body.x = 0;
+                tank_turret_base.x = tank_body.x + (tank_body.w / 2) - (tank_turret_base.w / 2) + 1;
+                tank_turret_tip.x = tank_turret_base.x;
+            }
+        }
+    }
+}
+
+//This moves the tank to the right
+on rightarrow
+{
+    if (!paused && !title_screen)
+    {
+        if ((tank_body.x + tank_body.w) < startup_window_width
+            && tank_body.visible)
+        {
+            tank_body.x += tank_step_size;
+            tank_turret_base.x += tank_step_size;
+            tank_turret_tip.x += tank_step_size;
+            //Prevent the player from pushing the tank off screen
+            if ((tank_body.x + tank_body.w) > startup_window_width)
+            {
+                tank_body.x = startup_window_width - tank_body.w;
+                tank_turret_base.x = tank_body.x + (tank_body.w / 2) - (tank_turret_base.w / 2) + 1;
+                tank_turret_tip.x = tank_turret_base.x;
+            }
+        }
+    }
+}
+
+//This makes the tank shoot (same as click)
+on space
+{
+    if (!paused && !title_screen)
+    {
+        //Fire a shot
+        if (tank_bullet.visible == 0 && reload_count == 0
+            && tank_body.visible)
+        { //Only allow the tank to fire one shot at a time
+            tank_bullet.visible = 1;
+            if (!god_mode)
+            {
+                tank_bullet.x = tank_turret_base.x + 1;
+            }
+            else
+            {
+                tank_bullet.x = -(tank_bullet.w / 2);
+            }
+            tank_bullet.y = tank_turret_tip.y;
+            reload_count = 25;
+        }
+        //Respawn if dead 
+        if (dead && lives > 0) 
+        {    
+            lives -= 1;
+            lives_title.text = "LIVES: " + lives;
+            tips.visible = 0;
+            //Respawn the Tank 
+            tank_body.x = tank_body_x;
+            tank_body.y = tank_body_y;
+            tank_turret_base.x = tank_turret_base_x;
+            tank_turret_base.y = tank_turret_base_y;
+            tank_turret_tip.x = tank_turret_tip_x;
+            tank_turret_tip.y = tank_turret_tip_y;
+            tank_body.visible = 1; 
+            tank_turret_base.visible = 1; 
+            tank_turret_tip.visible = 1; 
+            dead = 0; 
+        }
+    }
+    else if (title_screen)
+    { //Hide the title screen
+        title_screen = 0;
+        level_ready_to_spawn = 0;
+        game_over = 0;
+        game_title.visible = 0;
+        invaders_low[0].visible = 0;
+        invaders_med[0].visible = 0;
+        invaders_high[0].visible = 0;
+        invaders_low[0].x = oblivion;
+        invaders_low[0].y = oblivion;
+        invaders_med[0].x = oblivion;
+        invaders_med[0].y = oblivion;
+        invaders_high[0].x = oblivion;
+        invaders_high[0].y = oblivion;
+        level = 0;
+        //Spawn the Tank
+        tank_body.x = tank_body_x;
+        tank_body.y = tank_body_y;
+        tank_turret_base.x = tank_turret_base_x;
+        tank_turret_base.y = tank_turret_base_y;
+        tank_turret_tip.x = tank_turret_tip_x;
+        tank_turret_tip.y = tank_turret_tip_y;
+        tank_body.visible = 1; 
+        tank_turret_base.visible = 1; 
+        tank_turret_tip.visible = 1; 
+        new_level = 1;
+    }
+    if (game_over)
+    { //Start a new game
+        dead = 0;
+        game_over = 0;
+        level_ready = 0;
+        invaders_count = 0;
+        tips.visible = 0;
+        level = 0;
+        score = 0;
+        lives = 2;
+        score_title.text = "SCORE: " + score;
+        lives_title.text = "LIVES: " + lives;
+        //Spawn the Tank
+        tank_body.x = tank_body_x;
+        tank_body.y = tank_body_y;
+        tank_turret_base.x = tank_turret_base_x;
+        tank_turret_base.y = tank_turret_base_y;
+        tank_turret_tip.x = tank_turret_tip_x;
+        tank_turret_tip.y = tank_turret_tip_y;
+        tank_body.visible = 1; 
+        tank_turret_base.visible = 1; 
+        tank_turret_tip.visible = 1; 
+        new_level = 1;
+    }
+}
+
+//This makes the tank follow the mouse if the player is using a mouse
+on mouse_move
+{
+    if (!paused && !title_screen)
+    {
+        if (((mouse_x - (tank_body.w / 2)) >= 0)
+            && (mouse_x + (tank_body.w / 2) <= startup_window_width)
+            && tank_body.visible)
+        {
+            tank_body.x = mouse_x - (tank_body.w / 2);
+            tank_turret_base.x = tank_body.x + (tank_body.w / 2) - (tank_turret_base.w / 2) + 1;
+            tank_turret_tip.x = tank_turret_base.x;
+        }
+    }
+}
+
+//This makes the tank shoot (same as space)
+on leftmouse_down
+{ //Deja Vu!
+    if (!paused && !title_screen)
+    {
+        //Fire a shot
+        if (tank_bullet.visible == 0 && reload_count == 0
+            && tank_body.visible)
+        { //Only allow the tank to fire one shot at a time
+            tank_bullet.visible = 1;
+            if (!god_mode)
+            {
+                tank_bullet.x = tank_turret_base.x + 1;
+            }
+            else
+            {
+                tank_bullet.x = -(tank_bullet.w / 2);
+            }
+            tank_bullet.y = tank_turret_tip.y;
+            reload_count = 25;
+        }
+        //Respawn if dead 
+        if (dead && lives > 0) 
+        {    
+            lives -= 1;
+            lives_title.text = "LIVES: " + lives;
+            tips.visible = 0;
+            //Respawn the Tank 
+            tank_body.x = tank_body_x;
+            tank_body.y = tank_body_y;
+            tank_turret_base.x = tank_turret_base_x;
+            tank_turret_base.y = tank_turret_base_y;
+            tank_turret_tip.x = tank_turret_tip_x;
+            tank_turret_tip.y = tank_turret_tip_y;
+            tank_body.visible = 1; 
+            tank_turret_base.visible = 1; 
+            tank_turret_tip.visible = 1; 
+            dead = 0; 
+        }
+    }
+    else if (title_screen)
+    { //Hide the title screen
+        title_screen = 0;
+        level_ready_to_spawn = 0;
+        game_over = 0;
+        game_title.visible = 0;
+        invaders_low[0].visible = 0;
+        invaders_med[0].visible = 0;
+        invaders_high[0].visible = 0;
+        invaders_low[0].x = oblivion;
+        invaders_low[0].y = oblivion;
+        invaders_med[0].x = oblivion;
+        invaders_med[0].y = oblivion;
+        invaders_high[0].x = oblivion;
+        invaders_high[0].y = oblivion;
+        level = 0;
+        //Spawn the Tank
+        tank_body.x = tank_body_x;
+        tank_body.y = tank_body_y;
+        tank_turret_base.x = tank_turret_base_x;
+        tank_turret_base.y = tank_turret_base_y;
+        tank_turret_tip.x = tank_turret_tip_x;
+        tank_turret_tip.y = tank_turret_tip_y;
+        tank_body.visible = 1; 
+        tank_turret_base.visible = 1; 
+        tank_turret_tip.visible = 1; 
+        new_level = 1;
+    }
+    if (game_over)
+    { //Start a new game
+        dead = 0;
+        game_over = 0;
+        level_ready = 0;
+        invaders_count = 0;
+        tips.visible = 0;
+        level = 0;
+        score = 0;
+        lives = 2;
+        score_title.text = "SCORE: " + score;
+        lives_title.text = "LIVES: " + lives;
+        //Spawn the Tank
+        tank_body.x = tank_body_x;
+        tank_body.y = tank_body_y;
+        tank_turret_base.x = tank_turret_base_x;
+        tank_turret_base.y = tank_turret_base_y;
+        tank_turret_tip.x = tank_turret_tip_x;
+        tank_turret_tip.y = tank_turret_tip_y;
+        tank_body.visible = 1; 
+        tank_turret_base.visible = 1; 
+        tank_turret_tip.visible = 1; 
+        new_level = 1;
+    }
+}
+
+//This pauses the game
+on akey
+{
+    if (paused)
+    { //Unpause
+        //Restore what was in the tips textbox
+        tips.text = tips_previous;
+        tips.x = tips_previous_x;
+        tips.visible = tips_previous_visible;
+        paused = 0;
+    }
+    else if (!title_screen && !game_over)
+    { //Pause
+        //Save what was in the tips textbox
+        tips_previous = tips.text;
+        tips_previous_x = tips.x;
+        tips_previous_visible = tips.visible;
+        tips.text = tips_paused;
+        tips.x = tips_paused_x;
+        tips.visible = 1;
+        paused = 1;
+    }
+    if (title_screen)
+    {
+        if (cheat_code == 1)
+        {
+            cheat_code += 1;
+        }
+        else if (cheat_code == 4)
+        {
+            cheat_code += 1;
+        }
+        else
+        {
+            cheat_code = 0;
+        }
+    }
+}
+//=========================================================================================
+
+
+
+//Easter Egg!
+//=========================================================================================
+//The code below is for an easter egg, nothing more.
+//It allows the user to type a cheat code at the title screen to
+//activate GOD MODE. In GOD MODE, the tank's shots are extremely
+//powerful and wide.
+//To activate GOD MODE, type "Halfass" at title screen
+on hkey
+{
+    if (title_screen && cheat_code == 0)
+    {
+        cheat_code += 1;
+    }
+    else
+    {
+        cheat_code = 0;
+    }
+}
+
+on lkey
+{
+    if (title_screen && cheat_code == 2)
+    {
+        cheat_code += 1;
+    }
+    else
+    {
+        cheat_code = 0;
+    }
+}
+
+on fkey
+{
+    if (title_screen && cheat_code == 3)
+    {
+        cheat_code += 1;
+    }
+    else
+    {
+        cheat_code = 0;
+    }
+}
+
+on skey
+{
+    if (title_screen)
+    {
+        if (cheat_code == 5)
+        {
+            cheat_code += 1;
+        }
+        else if (cheat_code == 6)
+        { //Activate GODE MODE
+            god_mode = 1;
+            //Activation Message!
+            level_title.text = "GOD MODE ACTIVATED!!!";
+            level_title.x = (startup_window_width / 2) - 95;
+            //Super Bullets!
+            tank_bullet.w = (startup_window_width * 4);
+            tank_bullet_damage = 100;
+            //Red Text!
+            level_title.green = 0;
+            level_title.red = 0.75;
+            score_title.green = 0;
+            score_title.red = 0.75;
+            high_score_title.green = 0;
+            high_score_title.red = 0.75;
+            tips.green = 0;
+            tips.red = 0.75;
+            lives_title.green = 0;
+            lives_title.red = 0.75;
+        }
+        else
+        {
+            cheat_code = 0;
+        }
+    }
+}
+//=========================================================================================
+

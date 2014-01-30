@@ -1,0 +1,31 @@
+Space Invaders GPL
+by Coolcord
+
+The goal of this project was to write Space Invaders under the Game Programming 
+Language (GPL). The game is completely functional, although there are a few 
+minor bugs.
+
+To start the game, simply run the start.sh bash script. This will start the GPL
+interpreter and load the "SpaceInvaders.gpl" file. It is important to note that
+the included GPL binary will only work on 64-bit (x86_64) Linux systems. If you are 
+running a 32-bit Linux operating system or a 64-bit Mac operating system, the 
+according GPL binaries to play the game can be found here:
+http://www.ecst.csuchico.edu/~tyson/classes/515.s14/bin/linux/
+Simply download the according version and replace the file "gpl" with the new one.
+Make sure that it is still named "gpl"!
+
+The game can be played with either mouse or keyboard (or some combination of 
+the two if preferred). To move the tank, either use the arrow keys or move the 
+mouse. To shoot, press the space bar or click.
+
+More information about the programming of the game can be found at the top of 
+the file "SpaceInvaders.gpl".
+
+All files in this repository are under the MIT License.
+
+
+The Game Programming Language (GPL) and the included binary (the file called 
+"gpl") were created by Tyson Henry. https://www.github.com/tysonhenry/
+
+More information about GPL can be found here:
+http://www.ecst.csuchico.edu/~tyson/classes/515.s14/docs/gpl_manual.html
