@@ -21,7 +21,7 @@ mouse. To shoot, press the space bar or click.
 More information about the programming of the game can be found at the top of 
 the file "SpaceInvaders.gpl".
 
-All files in this repository are under the MIT License.
+All files in this repository are under the GPLv3 License.
 
 
 The Game Programming Language (GPL) and the included binary (the file called 
